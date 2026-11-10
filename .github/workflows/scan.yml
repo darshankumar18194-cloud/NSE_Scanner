@@ -152,7 +152,7 @@ jobs:
       - name: Collect the website files
         run: |
           mkdir _site
-          cp -r index.html main-dashboard stock signals shared-data .nojekyll _site/ 2>/dev/null || true
+          cp -r index.html assets main-dashboard stock signals shared-data .nojekyll _site/ 2>/dev/null || true
           find _site -maxdepth 2 | head -20
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4

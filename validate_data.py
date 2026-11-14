@@ -75,8 +75,11 @@ def _check_block(sym: str, prof: config.Profile, block: Any, errors: List[str]) 
             continue
         if g.get("dir") not in DIRS:
             errors.append(f"{tag}: '{g.get('name')}' has bad direction {g.get('dir')!r}")
-        if not _is_int(g.get("since")) or not 0 <= g["since"] < prof.store_bars:
-            errors.append(f"{tag}: '{g.get('name')}' since={g.get('since')!r} outside 0..{prof.store_bars - 1}")
+        # A base pattern that is still FORMING may have become ready before the stored window (it is kept while it stands);
+        # its breakouts / failures, and every other signal, must lie inside the window.
+        top = prof.store_bars + config.BASE_LEAD_BARS if g.get("group") == "base" and g.get("status") == "forming" else prof.store_bars - 1
+        if not _is_int(g.get("since")) or not 0 <= g["since"] <= top:
+            errors.append(f"{tag}: '{g.get('name')}' since={g.get('since')!r} outside 0..{top}")
         sc = _num(g.get("score"))
         if sc is None or not 0 <= sc <= 100:
             errors.append(f"{tag}: '{g.get('name')}' score={g.get('score')!r} outside 0..100")

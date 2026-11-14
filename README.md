@@ -103,6 +103,10 @@ pivot on volume of at least 1.4x the 50-day average (1.2x for Flat Base and Powe
 volume is not a breakout: the base stays *forming*, flagged low volume. *Failed*: a close below the stop, or a breakout that
 closes back under its pivot within 5 candles.
 
+**How long a base signal is kept.** A breakout or a failure is stored for 20 candles (`since` 0-19, like every other signal). A
+base that is still *forming* is kept for as long as it stands, so its `since` can be older (up to 90 candles); `validate_data.py`
+allows that for forming base signals only.
+
 **No repainting.** Only closed candles are used. Every decision at candle *i* uses candles up to *i* only; later candles
 can add the next event (forming -> breakout -> failed) but never move or erase an earlier one. A breakout keeps its own
 candle even if it fails later (`fail_since` says when). The walk starts 70 candles before the stored window

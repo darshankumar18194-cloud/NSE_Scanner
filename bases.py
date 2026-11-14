@@ -521,8 +521,8 @@ def base_signals(x: P.Candles, store_bars: int, a: Optional[Arr] = None) -> List
         for ev in events:
             i, b, status = ev["bar"], ev["base"], ev["status"]
             since = a.n - 1 - i
-            if status != "forming" and since > store_bars:
-                continue
+            if status != "forming" and since >= store_bars:
+                continue   # breakouts / failures live in the stored window 0..store_bars-1; a base still forming may be older
             row = {
                 "name": name, "group": "base", "dir": "bull", "len": int(b["len"]), "stars": BASE_META[name][1],
                 "stop": _r(b["stop"]), "since": since, "time": a.x.times[i].strftime(C.DAILY_DATE_FMT),

@@ -415,9 +415,56 @@ def test_no_repaint_on_random_walks():
         full = decided(df, len(df))
         for back in (1, 2, 3, 5, 8):
             for key, (status, since) in decided(df, len(df) - back).items():
-                if since + back > PROF.store_bars:      # scrolled out of the stored window: not a repaint
+                if since + back >= PROF.store_bars:     # scrolled out of the stored window: not a repaint
                     continue
                 checked += 1
                 assert key in full, (seed, back, key)
                 assert full[key][0] == status or (status == "breakout" and full[key][0] == "failed"), (seed, back, key)
     assert checked > 20
+
+
+# ----------------------------------------------------------------------------- the publish gate (validate_data.py)
+def _validate(df):
+    import detail_store
+    import scan_market_structure_combined as scan
+    import validate_data
+    _, detail = scan.compute_signals(PROF, df, "BULLISH")
+    errors = []
+    validate_data._check_block("TEST", PROF, detail_store.sanitize(detail), errors)
+    return detail, errors
+
+
+def test_breakout_window_boundary_matches_the_stored_window():
+    """Breakouts / failures are stored for since 0..store_bars-1 (19). One candle older is dropped, never stored."""
+    def brk(extra):
+        b = S.flat_base(); b.bar(101.5, vol=2.0)
+        for _ in range(extra):
+            b.bar(b.last * 1.002, vol=1.0)
+        return sigs(b, "Flat Base")
+    kept = brk(PROF.store_bars - 1)
+    assert kept and kept[0]["since"] == PROF.store_bars - 1
+    assert brk(PROF.store_bars) == []
+
+
+def test_a_base_that_has_been_forming_for_a_long_time_is_kept_and_passes_the_validator():
+    b = S.flat_base(); b.flat(99.4, 30, vol=0.7, wiggle=0.003)       # still coiling just under its pivot, 30+ candles later
+    g = sigs(b, "Flat Base")[0]
+    assert g["status"] == "forming" and g["since"] >= PROF.store_bars
+    _, errors = _validate(b.df())
+    assert errors == []
+
+
+def test_everything_the_scanner_produces_passes_the_publish_validator():
+    """Regression: the first real GitHub run failed validation with \"since=26 outside 0..19\" because older forming bases
+    were stored. Random walks and the exact shapes, through compute_signals and the real validator."""
+    frames = [_walk(seed) for seed in range(60)]
+    for seed in range(8):
+        frames += [S.flat_base(seed=seed).df(), S.cup(seed=seed).df(), S.vcp(seed=seed).df(), S.darvas(seed=seed).df(),
+                   S.flat_base(seed=seed).flat(99.4, 40, vol=0.7, wiggle=0.003).df(),
+                   S.ledge(seed=seed).flat(98.5, 25, vol=0.5, wiggle=0.002).df()]
+    seen_old = False
+    for df in frames:
+        detail, errors = _validate(df)
+        assert errors == [], errors[:3]
+        seen_old |= any(g["group"] == "base" and g["status"] == "forming" and g["since"] >= PROF.store_bars for g in detail["signals"])
+    assert seen_old      # the test really did produce the old-forming case that used to be rejected

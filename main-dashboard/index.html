@@ -31,11 +31,11 @@
 <div class="sec"><h2>Signals</h2></div>
 
 <div class="tabs" role="tablist">
-  <button class="tab" role="tab" aria-selected="true" data-tab="combo">SMC + pattern</button>
+  <button class="tab" role="tab" aria-selected="true" data-tab="base" id="tabBase">Base patterns<span class="count" id="baseCount"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="combo">SMC + pattern</button>
   <button class="tab" role="tab" aria-selected="false" data-tab="triple" id="tabTriple">SMC + pattern + base<span class="count" id="tripleCount"></span></button>
   <button class="tab" role="tab" aria-selected="false" data-tab="smc">SMC signals</button>
   <button class="tab" role="tab" aria-selected="false" data-tab="pat">Pattern signals</button>
-  <button class="tab" role="tab" aria-selected="false" data-tab="base" id="tabBase">Base patterns<span class="count" id="baseCount"></span></button>
   <button class="tab" role="tab" aria-selected="false" data-tab="all">All symbols</button>
   <button class="tab" role="tab" aria-selected="false" data-tab="feed">Signal feed<span class="count" id="feedCount"></span></button>
   <button class="tab" role="tab" aria-selected="false" data-tab="watch">Watchlist<span class="count" id="watchCount"></span></button>
@@ -69,11 +69,11 @@
   <div class="actions"><button class="btn" id="fReset" type="button">Reset filters</button></div>
 </section>
 
-<section class="filters hidden" id="baseFilters" aria-label="Base pattern filters">
+<section class="filters" id="baseFilters" aria-label="Base pattern filters">
   <div class="field wide"><label>Base (click one to see it alone; the number is how many are live)</label><div id="baseChips" class="chips"></div><p class="muted small" id="baseNote" style="margin:6px 0 0"></p></div>
   <div class="field"><label for="fBStyle">Trader style</label><select id="fBStyle"><option value="balanced">Balanced</option><option value="breakout">Breakout trader</option><option value="early">Early / anticipation</option><option value="positional">Positional / trend</option><option value="conservative">Conservative</option></select></div>
-  <div class="field"><label for="fBDir">Direction</label><select id="fBDir"><option value="default">Bullish + two-sided</option><option value="all">All directions</option><option value="bull">Bullish only</option><option value="bear">Bearish only</option><option value="neutral">Two-sided only</option><option value="warn">Warnings only</option></select></div>
-  <div class="field"><label for="fBStatus">Base status</label><select id="fBStatus"><option value="">Forming and breakout</option><option value="forming">Forming only</option><option value="breakout">Breakout only</option></select></div>
+  <div class="field" id="fBDirWrap"><label for="fBDir">Direction</label><select id="fBDir"><option value="default">Bullish + two-sided</option><option value="all">All directions</option><option value="bull">Bullish only</option><option value="bear">Bearish only</option><option value="neutral">Two-sided only</option><option value="warn">Warnings only</option></select></div>
+  <div class="field" id="fBStatusWrap"><label for="fBStatus">Base status</label><select id="fBStatus"><option value="">Forming and breakout</option><option value="forming">Forming only</option><option value="breakout">Breakout only</option></select></div>
   <div class="field"><label for="fBStage">Stage (30-week average, 1D)</label><select id="fBStage"><option value="">Any stage</option><option value="1">Stage 1 - basing</option><option value="2">Stage 2 - advancing</option><option value="3">Stage 3 - topping</option><option value="4">Stage 4 - declining</option></select></div>
   <div class="field"><label for="fBWithin">Status began within</label><select id="fBWithin"><option value="">Any time</option><option value="1">1 candle</option><option value="3">3 candles</option><option value="5">5 candles</option><option value="10">10 candles</option><option value="20">20 candles</option></select></div>
   <div class="field"><label for="fBTurn">Min daily turnover (₹ crore)</label><input id="fBTurn" type="number" min="0" step="0.5" placeholder="any"></div>
@@ -84,11 +84,11 @@
   <div class="field check" id="fBCandWrap"><label><input id="fBCand" type="checkbox"> Require confirmed candle pattern</label></div>
 </section>
 
-<div id="viewCombo"><section class="pair one" id="fullCombo"></section></div>
+<div id="viewCombo" class="hidden"><section class="pair one" id="fullCombo"></section></div>
 <div id="viewTriple" class="hidden"><section class="pair one" id="fullTriple"></section></div>
 <div id="viewSmc" class="hidden"><section class="pair" id="fullSmc"></section></div>
 <div id="viewPat" class="hidden"><section class="pair" id="fullPat"></section></div>
-<div id="viewBase" class="hidden"><section class="pair one" id="fullBase"></section></div>
+<div id="viewBase"><section class="pair one" id="fullBase"></section></div>
 
 <div id="viewAll" class="hidden">
   <section class="card">
@@ -106,8 +106,8 @@
 <details class="issues" id="issues" hidden>
   <summary id="issuesSummary"></summary>
   <div class="body">
-    <p class="muted small">These symbols are not in the tables above. Fix them in <code>shared-data/symbols.csv</code> (the <code>Yahoo Symbol</code> and <code>Active</code> columns) and the next run picks the change up.</p>
-    <div class="scroll"><table><thead><tr><th>Symbol</th><th>Yahoo symbol</th><th>Status</th><th>Detail</th></tr></thead><tbody id="issuesBody"></tbody></table></div>
+    <p class="muted small">These symbols are not in the tables above, grouped by reason. Most are expected: very new listings, and SME / micro-cap names that Yahoo does not carry. Nothing to edit by hand.</p>
+    <div class="scroll"><table><thead><tr><th>Symbol</th><th>Yahoo symbol</th><th>Type</th><th>Detail</th></tr></thead><tbody id="issuesBody"></tbody></table></div>
     <p class="muted small" id="csvProblems"></p>
   </div>
 </details>
@@ -121,10 +121,10 @@ const $ = (s, r=document) => r.querySelector(s);
 const stockUrl = sym => '../stock/index.html?symbol=' + encodeURIComponent(sym) + '&tf=' + NSE_TF;
 const DEFAULT_F = {q:'', squeeze:'', from:'', to:'', regular:false, smc:'', strength:'', event:'', age:'', group:'', pat:'', win:NSE_TF === '1h' ? 20 : 10, conf:0, status:'', confirm:'confirmed', only:false};
 const DEFAULT_B = {pat:'', dir:'default', status:'', stage:'', within:'', style:'balanced', turn:'', risk:'', rs:'', rankMin:'', reqSmc:false, reqCand:false};
-const state = { tab: 'combo', f: {...DEFAULT_F}, all: {key: 'conf', dir: -1, page: 1, per: 25},
+const state = { tab: 'base', f: {...DEFAULT_F}, all: {key: 'conf', dir: -1, page: 1, per: 25},
   t: { smcHigh: {key:'rank', dir:-1, page:1}, smcLow: {key:'rank', dir:-1, page:1}, patBull: {key:'score', dir:-1, page:1}, patBear: {key:'score', dir:-1, page:1},
     comboLow: {key:'rank', dir:-1, page:1}, comboHigh: {key:'rank', dir:-1, page:1},
-    baseLive: {key:'rank', dir:-1, page:1}, baseFail: {key:'since', dir:1, page:1}, triple: {key:'rank', dir:-1, page:1} },
+    baseUp: {key:'rank', dir:-1, page:1}, baseDown: {key:'rank', dir:-1, page:1}, baseNext: {key:'rank', dir:-1, page:1}, baseFail: {key:'since', dir:1, page:1}, triple: {key:'rank', dir:-1, page:1} },
   b: {...DEFAULT_B} };
 const PER = 20;
 
@@ -385,7 +385,7 @@ function baseRank(s, g, x, style){
   else if (g.warn) sc[1] = null;
   else if (g.status === 'breakout') { const ext = g.pivot ? Math.abs(s.price - g.pivot) / g.pivot * 100 : 0;
     sc[1] = ext > 5 ? 5 : (g.since <= 2 && (g.vol_x || 0) >= 1.4) ? 20 : g.since <= 5 ? 14 : 9; }
-  else { const dd = x.dist; sc[1] = dd == null ? 8 : dd <= 2 ? 17 : dd <= 5 ? 12 : 6; if (g.lowvol) sc[1] = Math.min(sc[1], 6); }
+  else { const dd = x.dist; sc[1] = dd == null ? 8 : dd <= 2 ? 17 : dd <= 5 ? 12 : 6; if (g.lowvol || g.weakclose) sc[1] = Math.min(sc[1], 6); }
   if (ctx.stage) sc[2] = d === 'bull' ? {1:7, 2:15, 3:3, 4:0}[ctx.stage] : d === 'bear' ? {1:2, 2:0, 3:10, 4:15}[ctx.stage] : 7.5;
   const r = rsPct(s); if (r != null) sc[3] = d === 'bull' ? r / 100 * 15 : d === 'bear' ? (100 - r) / 100 * 15 : 7.5;
   const t = (s.smc || {}).trend;
@@ -415,7 +415,6 @@ function baseAll(){              // every base row that passes the filters EXCEP
       const st = g.status || (g.confirm === 'confirmed' ? 'breakout' : g.confirm === 'failed' ? 'failed' : 'forming');
       if ((f.group && f.group !== 'base') || (f.pat && g.name !== f.pat)) return;
       if (g.score < f.conf || !dateOk(g.time) || !barOk(g.since) || (b.within !== '' && g.since > +b.within)) return;
-      if (st !== 'failed' && b.status && st !== b.status) return;
       const risk = baseRisk(s, g), tv = (s.context || {}).turnover_cr;
       if ((b.risk !== '' && risk != null && risk > +b.risk) || (b.turn !== '' && tv != null && tv < +b.turn) || (b.rs !== '' && rsv != null && rsv < +b.rs)) return;
       const x = {s, g, st, dir: g.dir, dist: baseDist(s, g), risk, cand: candleAlign(s, g.dir), rs: rsv, since: g.since};
@@ -429,10 +428,14 @@ function baseAll(){              // every base row that passes the filters EXCEP
 }
 /* the Direction filter is applied per tab: the Base tab hides bearish bases and warnings by default; the triple tab only ever shows bullish or bearish bases */
 function tripleDirOk(g, mode){ if (g.warn || g.dir === 'neutral') return false; return mode === 'bear' ? g.dir === 'bear' : mode === 'bull' ? g.dir === 'bull' : (mode === 'default' || mode === 'all'); }
-function baseTabAll(){ return baseAll().live.filter(r => dirOk(r.g, state.b.dir)); }
-function tripleAll(){ return baseAll().live.filter(r => tripleDirOk(r.g, state.b.dir) && r.sa === 1 && r.cand && r.cand.lvl === 2); }
-function baseLiveRows(){ const b = state.b; return baseTabAll().filter(r => (!b.pat || r.g.name === b.pat) && (!b.reqSmc || r.sa === 1) && (!b.reqCand || (r.cand && r.cand.lvl === 2))); }
-function baseFailRows(){ const b = state.b; return baseAll().fail.filter(r => dirOk(r.g, b.dir) && (!b.pat || r.g.name === b.pat)); }
+function baseTabAll(){ return baseAll().live.filter(r => !r.g.warn); }   // Base tab: every setup that is not a warning; the three tables below split it by status and direction
+const statusOk = r => !state.b.status || r.st === state.b.status;
+function tripleAll(){ return baseAll().live.filter(r => tripleDirOk(r.g, state.b.dir) && statusOk(r) && r.sa === 1 && r.cand && r.cand.lvl === 2); }
+function baseRowsOf(test){ const b = state.b; return baseTabAll().filter(r => test(r) && (!b.pat || r.g.name === b.pat) && (!b.reqSmc || r.sa === 1) && (!b.reqCand || (r.cand && r.cand.lvl === 2))); }
+function baseUpRows(){ return baseRowsOf(r => r.st === 'breakout' && r.g.dir === 'bull'); }       // closed above the trigger on enough volume
+function baseDownRows(){ return baseRowsOf(r => r.st === 'breakout' && r.g.dir === 'bear'); }     // closed below the trigger on enough volume
+function baseNextRows(){ return baseRowsOf(r => r.st === 'forming'); }                              // complete shape, close near the trigger: the next breakout candidates
+function baseFailRows(){ const b = state.b; return baseAll().fail.filter(r => !r.g.warn && (!b.pat || r.g.name === b.pat)); }
 /* SMC + pattern + base: bases where SMC and a confirmed candle pattern both point the way the base points (bullish or bearish bases only) */
 function tripleRows(){ const b = state.b; return tripleAll().filter(r => !b.pat || r.g.name === b.pat); }
 function tripleTotal(){ return tripleAll().length; }
@@ -458,7 +461,8 @@ const baseStatusCell = r => (r.g && r.g.warn ? '<span class="pill neutral" style
   : r.st === 'breakout' ? '<span class="pill bull" title="Closed beyond the trigger on enough volume">Breakout</span>'
   : r.st === 'failed' ? '<span class="pill bear" title="Closed beyond the stop, or a breakout fell back inside">Failed</span>'
   : '<span class="pill neutral" title="Shape complete, close near the trigger. Not a breakout yet.">Forming</span>')
-  + (r.g && r.g.lowvol && r.st !== 'breakout' ? '<br><span class="muted small" title="A close beyond the trigger on weak volume is not a breakout">low volume</span>' : '');
+  + (r.g && r.g.lowvol && r.st !== 'breakout' ? '<br><span class="muted small" title="A close beyond the trigger on weak volume is not a breakout">low volume</span>' : '')
+  + (r.g && r.g.weakclose && r.st !== 'breakout' ? '<br><span class="muted small" title="The candle closed above the trigger but not near its high, so this base does not count it as a breakout">weak close</span>' : '');
 const baseDirCell = g => g.warn ? '<span class="pill neutral">Warning</span>' : g.dir === 'bull' ? '<span class="pill bull">Bullish</span>' : g.dir === 'bear' ? '<span class="pill bear">Bearish</span>' : '<span class="pill neutral" title="The side that breaks decides">Two-sided</span>';
 const stageCell = c => { c = c || {}; if (!c.stage) return '<span class="muted small">–</span>';
   return '<span class="pill ' + (c.stage === 2 ? 'bull' : c.stage === 4 ? 'bear' : 'neutral') + '" title="' + esc(c.stage_label || '') + '">Stage ' + c.stage + '</span>'
@@ -496,7 +500,9 @@ const baseCols = () => [
 const bandTie = (a, b) => (a.st === 'breakout' ? 0 : 1) - (b.st === 'breakout' ? 0 : 1) || Math.abs(a.dist ?? 99) - Math.abs(b.dist ?? 99);
 const TABLE_DEFS = {
   triple: {title:'SMC + Pattern + Base', cls:'bull', tie: bandTie, sub:'', tip:'Bases (bullish or bearish) where the SMC trend AND a confirmed candle pattern from the last 10 candles both point the same way as the base. The Base filters, the global filters, the base buttons and the trader style all apply. Ranked by Base Rank.', cols: baseCols, rows: f => tripleRows()},
-  baseLive: {title:'Bases · forming and breakout', cls:'bull', tie: bandTie, sub:'', tip: BASE_TIP, cols: baseCols, rows: f => baseLiveRows()},
+  baseUp: {title:'Bullish breakouts (up-trend bases)', cls:'bull', tie: bandTie, sub:'', tip:'Bases whose price closed ABOVE the trigger on enough volume. ' + BASE_TIP, cols: baseCols, rows: f => baseUpRows()},
+  baseDown: {title:'Bearish breakdowns (down-trend bases)', cls:'bear', tie: bandTie, sub:'', tip:'Bases whose price closed BELOW the trigger on enough volume. ' + BASE_TIP, cols: baseCols, rows: f => baseDownRows()},
+  baseNext: {title:'Upcoming breakouts (forming)', cls:'neutral', tie: bandTie, sub:'', tip:'The shape is complete and the close is within a few % of the trigger, but it has not broken yet. Bullish ones break up, bearish ones break down, two-sided ones go the way they break. Sort by Trigger level to see the closest first. ' + BASE_TIP, cols: baseCols, rows: f => baseNextRows()},
   baseFail: {title:'Failed bases', cls:'bear', tie:(a, b) => b.rank - a.rank, sub:'', tip:'Bases whose stop was broken, or whose breakout closed back inside. Kept for a while so you can see what just failed.', cols: baseCols, rows: f => baseFailRows()},
   smcHigh: {title:'High signals (downward)', cls:'bear', sub:'', cols: () => smcCols('high'), rows: f => smcRows('high', f)},
   smcLow:  {title:'Low signals (upward)', cls:'bull', sub:'', cols: () => smcCols('low'), rows: f => smcRows('low', f)},
@@ -612,7 +618,7 @@ function renderWatch(){
 }
 function renderFull(){
   BASE_ALL = null;
-  ['comboLow','comboHigh','smcHigh','smcLow','patBull','patBear','baseLive','baseFail','triple'].forEach(id => renderTable('f_', id, false));
+  ['comboLow','comboHigh','smcHigh','smcLow','patBull','patBear','baseUp','baseDown','baseNext','baseFail','triple'].forEach(id => renderTable('f_', id, false));
   $('#baseCount').textContent = ' ' + baseTabAll().length;
   $('#tripleCount').textContent = ' ' + tripleTotal();
   renderChips();
@@ -643,12 +649,38 @@ function renderStats(){
     '<div class="stat warn"><b>' + (c.STALE || 0) + '</b><span>stale (last good result)</span></div>' +
     '<div class="stat warn"><b>' + (DATA.stocks.length - LIVE.length) + '</b><span>not scanned (Data issues)</span></div>';
 }
+/* Data issues: every symbol that is not in the tables, sorted into plain reasons. Most are expected (new listings, SME names Yahoo does not carry). */
+const ISSUE_KINDS = [
+  ['rate',  'Yahoo rate limit', 'Yahoo refused the request (too many requests from GitHub). The scanner retries these inside the run and again on the next run, so most fix themselves.'],
+  ['error', 'Download error', 'Another download or analysis error. Retried on the next run.'],
+  ['stale', 'Stale (older result kept)', 'The last good scan is shown, but today\'s download failed.'],
+  ['nodata','No Yahoo data', 'Yahoo returned no candles for this ticker on this run (many SME / micro-cap names and some ETFs are not carried, and Yahoo also answers like this when it is throttling). The scanner retries them in the run and on the next run. Where an older result exists it stays on the dashboard.'],
+  ['index', 'Index not on Yahoo', 'Yahoo does not publish history for this NSE index ticker. Safe to ignore.'],
+  ['short', 'New listing / short history', 'Fewer than 120 daily candles (about 6 months). It is picked up automatically once it has enough history.'],
+  ['nopiv', 'No swing points', 'Price barely moves (illiquid or halted), so no market structure can be drawn.'],
+  ['pending','Waiting for first scan', 'Added to the list, not scanned yet.'],
+  ['off',   'Switched off', 'Marked as not listed.']];
+function issueKind(s){
+  const st = s.scanner_status, err = String(s.scan_error || '');
+  if (st === 'INACTIVE') return 'off';
+  if (st === 'PENDING_SCAN') return 'pending';
+  if (st === 'NO_PIVOTS') return 'nopiv';
+  if (/rate.?limit|too many requests|429/i.test(err)) return 'rate';
+  const noCandles = st === 'NO_DATA' || /NO_DATA|INSUFFICIENT_DATA|delisted|no timezone|no price data|empty history|no closed candles/i.test(err);
+  if (st === 'ERROR' && !noCandles) return 'error';
+  if (st === 'STALE' && !noCandles) return 'stale';      // a stale record is named by WHY today's download failed
+  if (String(s.symbol).charAt(0) === '^' || s.type === 'INDEX') return 'index';
+  if (noCandles) return 'nodata';
+  return 'short';
+}
 function renderIssues(){
   const bad = DATA.stocks.filter(s => !isLive(s) || s.scanner_status === 'STALE'), probs = META.csv_problems || [];
   $('#issues').hidden = !(bad.length || probs.length);
+  const by = {}; bad.forEach(s => (by[issueKind(s)] = by[issueKind(s)] || []).push(s));
   $('#issuesSummary').textContent = 'Data issues (' + bad.length + ' symbols' + (probs.length ? ', ' + probs.length + ' CSV problems' : '') + ')';
-  const label = {INACTIVE:'Switched off', NO_DATA:'No Yahoo data', ERROR:'Download error', INSUFFICIENT_DATA:'Too few candles', PENDING_SCAN:'Waiting for first scan', STALE:'Stale'};
-  $('#issuesBody').innerHTML = bad.map(s => '<tr><td>' + esc(s.symbol) + '</td><td>' + esc(s.yahoo_symbol) + '</td><td>' + esc(label[s.scanner_status] || s.scanner_status) + '</td><td class="muted small">' + esc(s.scan_error || s.notes || '') + '</td></tr>').join('');
+  $('#issuesBody').innerHTML = ISSUE_KINDS.filter(k => by[k[0]]).map(([k, label, why]) =>
+    '<tr class="issue-group"><td colspan="4"><b>' + esc(label) + '</b> · ' + by[k].length + ' symbols<br><span class="muted small">' + esc(why) + '</span></td></tr>' +
+    by[k].map(s => '<tr><td>' + esc(s.symbol) + '</td><td>' + esc(s.yahoo_symbol) + '</td><td>' + esc(s.type || '') + '</td><td class="muted small">' + esc(String(s.scan_error || '').replace(/^NO_DATA: ?/, '')) + '</td></tr>').join('')).join('');
   $('#csvProblems').textContent = probs.length ? 'stocks.json: ' + probs.join(' · ') : '';
 }
 
@@ -656,7 +688,8 @@ function renderIssues(){
 function setTab(t){
   state.tab = t;
   $('#baseFilters').classList.toggle('hidden', t !== 'base' && t !== 'triple');
-  ['#fBSmcWrap', '#fBCandWrap'].forEach(id => $(id).classList.toggle('hidden', t === 'triple'));   // the triple tab already requires both
+  ['#fBSmcWrap', '#fBCandWrap'].forEach(id => $(id).classList.toggle('hidden', t === 'triple'));
+  ['#fBDirWrap', '#fBStatusWrap'].forEach(id => $(id).classList.toggle('hidden', t === 'base'));   // the Base tab has one table per direction and status   // the triple tab already requires both
   ['#fWin', '#fConfirm'].forEach(id => $(id).closest('.field').classList.toggle('hidden', t === 'base' || t === 'triple'));   // the base tabs have their own status / recency filters
   if (BASE_ALL) renderChips();
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
@@ -742,7 +775,7 @@ async function init(){
   $('#fullSmc').innerHTML = tableShell('f_smcHigh', TABLE_DEFS.smcHigh, false) + tableShell('f_smcLow', TABLE_DEFS.smcLow, false);
   $('#fullPat').innerHTML = tableShell('f_patBull', TABLE_DEFS.patBull, false) + tableShell('f_patBear', TABLE_DEFS.patBear, false);
   $('#fullTriple').innerHTML = tableShell('f_triple', TABLE_DEFS.triple, false);
-  $('#fullBase').innerHTML = tableShell('f_baseLive', TABLE_DEFS.baseLive, false) + tableShell('f_baseFail', TABLE_DEFS.baseFail, false);
+  $('#fullBase').innerHTML = tableShell('f_baseUp', TABLE_DEFS.baseUp, false) + tableShell('f_baseDown', TABLE_DEFS.baseDown, false) + tableShell('f_baseNext', TABLE_DEFS.baseNext, false) + tableShell('f_baseFail', TABLE_DEFS.baseFail, false);
   $('#baseNote').textContent = NSE_TF === '1h' ? 'On 1H the rules are counted in hourly candles (a 25-candle base lasts about 3.5 trading days). Stage, base count and relative strength are daily readings, so on 1H the rank is rescaled without them.' : '';
   bindFilters();
   try { DATA = await loadData(); }
@@ -755,6 +788,7 @@ async function init(){
   if (!LIVE.some(s => (s.candles || []).length)) { document.querySelectorAll('.tab[data-tab="combo"], .tab[data-tab="triple"]').forEach(cb => cb.style.display = 'none'); setTab('smc'); }
   buildFilterOptions(); renderHeader(); renderStats(); renderIssues();
   renderFull();
+  setTab(state.tab);
 }
 init();
 </script>

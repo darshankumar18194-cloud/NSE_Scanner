@@ -26,7 +26,7 @@ CTX_KEYS = ("squeeze_state", "compression_layers", "atr", "atr_pct", "rel_volume
             "uptrend_bars", "climactic", "ret_6m", "turnover_cr")
 # base-pattern signals carry extra fields; they are copied only when present so every other signal stays as small as before
 BASE_SIG_KEYS = ("status", "pivot", "price", "vol", "vol_x", "depth", "formed", "base_no", "climactic", "box_no",
-                 "contractions", "handle_bars", "undercut_pct", "rally_pct", "steps", "lowvol", "fail_since",
+                 "contractions", "handle_bars", "undercut_pct", "rally_pct", "steps", "lowvol", "weakclose", "fail_since",
                  "pivot_lo", "variant", "target", "fast", "quality", "warn", "upper", "lower", "pole_pct", "r2")
 
 

@@ -245,3 +245,29 @@ def test_scanner_survives_malformed_series():
         if kind == 6: h, l = l, h
         df = pd.DataFrame({"Date": pd.bdate_range(end="2026-11-12", periods=n), "Open": o, "High": h, "Low": l, "Close": c, "Volume": v})
         scan.compute_signals(PROF, df, "BULLISH")   # must not raise
+
+
+# ----------------------------------------------------------------------------- the guide's per-base breakout rules (config.BASE_BREAKOUT_RULES)
+def _after(shape, close, vol, name, wick=0.0):
+    b = shape(); b.bar(close, vol=vol)
+    df = b.df()
+    if wick:
+        df.loc[df.index[-1], "High"] = df["Close"].iloc[-1] * (1 + wick)
+    return [r for r in B.base_signals(P.Candles(df, 50), PROF.store_bars) if r["name"] == name]
+
+
+def test_rectangle_needs_a_decisive_close_outside_the_box(monkeypatch):
+    broke = lambda rows: any(r["status"] == "breakout" for r in rows)
+    assert broke(_after(S.rectangle, 101.9, 2.0, "Rectangle"))                              # closes at its high: decisive
+    poked = _after(S.rectangle, 101.9, 2.0, "Rectangle", wick=0.05)                         # same close, but it closed far below its high
+    assert not broke(poked)
+    monkeypatch.setattr(config, "BASE_BREAKOUT_RULES", {})
+    assert broke(_after(S.rectangle, 101.9, 2.0, "Rectangle", wick=0.05))                   # without the rule the poke would have counted
+
+
+def test_rounding_bottom_breaks_on_a_pickup_in_volume_not_a_surge(monkeypatch):
+    broke = lambda rows: any(r["status"] == "breakout" for r in rows)
+    assert broke(_after(S.rounding_bottom, 101.8, 1.2, "Rounding Bottom"))                  # ~1.3x the average: a pickup
+    assert not broke(_after(S.rounding_bottom, 101.8, 0.9, "Rounding Bottom"))              # below average volume: still no breakout
+    monkeypatch.setattr(config, "BASE_BREAKOUT_RULES", {})
+    assert not broke(_after(S.rounding_bottom, 101.8, 1.2, "Rounding Bottom"))              # the general 1.4x would have refused it

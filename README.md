@@ -249,7 +249,7 @@ symbol scanned OK. Stale records only warn.
 ## Things to know
 
 * **Repo growth.** The 1H scan changes most detail files seven times a day, and every change is a commit. To stop
-  the repository growing without limit, the last step of `scan.yml` keeps only the newest 100 commits (it rewrites
+  the repository growing without limit, the last step of `scan.yml` keeps only the newest 10 commits (it rewrites
   history and force-pushes). Files are not affected, only old versions of them, so you cannot go back to an old
   data snapshot. This needs the `main` branch to have **no branch protection** (a protected branch refuses the
   force-push). GitHub frees the storage of the dropped commits with a delay, so the repository size shown in
@@ -265,3 +265,5 @@ symbol scanned OK. Stale records only warn.
   page with a candlestick chart marking every signal, the score breakdown, the indicator readings and the full
   signal list. The home page (`index.html`) links to both. To test locally: `python -m http.server` in the project
   folder, then open `http://localhost:8000/`.
+
+* **Base rules.** Every base has its own shape and breakout rules (for example Darvas Box needs 1.5x volume and a clean close, Flat Base only 1.2x). They are all listed in `BASE_RULES.md`, and the numbers live in `config.py`.

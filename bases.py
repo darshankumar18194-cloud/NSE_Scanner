@@ -356,6 +356,9 @@ def run_detector(a: Arr, name: str, first: int) -> List[dict]:
     """
     det, vol_kind = DETECTORS[name]
     need = _vol_need(vol_kind) if vol_kind in ("std", "easy", "none") else C.BASE_BREAKOUT_VOL
+    rule = C.BASE_BREAKOUT_RULES.get(name, {})        # this base's own breakout rules (see config.py)
+    need = rule.get("vol", need)
+    close_pos = rule.get("close_pos", 0.0)
     c, n, volr = a.c, a.n, a.volr
     gate = a.gate if name in NEAR_HIGH_ONLY else a.all_true
     soft = name in SOFT_STOP
@@ -364,14 +367,16 @@ def run_detector(a: Arr, name: str, first: int) -> List[dict]:
     last_end = -1
     out: List[dict] = []
     for i in range(first, n):
-        cand, searched, lowvol = None, False, False
+        cand, searched, lowvol, weakclose = None, False, False, False
         if armed is not None:
             b = armed["base"]
             d, up, dn, stop = b["dir"], b["up"], b["dn"], b["stop"]
             vol_ok = need == 0 or (not np.isnan(volr[i]) and volr[i] >= need)
             beyond_up = d in ("bull", "both") and up is not None and c[i] > up
             beyond_dn = d in ("bear", "both") and dn is not None and c[i] < dn
-            if (beyond_up or beyond_dn) and vol_ok:
+            rng_i = float(a.h[i] - a.l[i])
+            close_ok = close_pos <= 0 or rng_i <= 0 or ((c[i] - a.l[i]) / rng_i >= close_pos if beyond_up else (a.h[i] - c[i]) / rng_i >= close_pos)
+            if (beyond_up or beyond_dn) and vol_ok and close_ok:
                 out.append({"status": "breakout", "bar": i, "base": b, "formed": armed["formed"], "bdir": "bull" if beyond_up else "bear",
                             "vol_x": None if np.isnan(volr[i]) else float(volr[i]), "fast": _fast(a, i)})
                 last_end, armed = i, None
@@ -385,13 +390,13 @@ def run_detector(a: Arr, name: str, first: int) -> List[dict]:
                 if (beyond_up and c[i] > up * (1 + far)) or (beyond_dn and c[i] < dn * (1 - far)):
                     last_end, armed = i, None          # ran away without volume: this base is over
                 else:
-                    lowvol = True                       # beyond the trigger on weak volume: still forming, flagged
+                    lowvol, weakclose = not vol_ok, not close_ok   # beyond the trigger but short of this base's rules: still forming, flagged
         if not searched:
             cand = _norm(det(a, i)) if gate[i] else None
         if cand is not None and cand["depth"] < C.BASE_MIN_DEPTH_PCT:
             cand = None  # no real range: a price that never moves is not a base
         if cand is not None and cand["start"] > last_end and _near_ok(cand, c[i]):
-            armed = {"base": cand, "formed": armed["formed"] if armed is not None else i, "lowvol": lowvol}
+            armed = {"base": cand, "formed": armed["formed"] if armed is not None else i, "lowvol": lowvol, "weakclose": weakclose}
         else:
             armed = None  # shape lost (or price drifted away from the trigger): not forming any more
     # a breakout that falls straight back (or loses its stop) has failed
@@ -409,7 +414,7 @@ def run_detector(a: Arr, name: str, first: int) -> List[dict]:
                 break
     if armed is not None:
         out.append({"status": "forming", "bar": armed["formed"], "base": armed["base"], "formed": armed["formed"],
-                    "vol_x": None, "lowvol": bool(armed.get("lowvol")), "bdir": armed["base"]["dir"]})
+                    "vol_x": None, "lowvol": bool(armed.get("lowvol")), "weakclose": bool(armed.get("weakclose")), "bdir": armed["base"]["dir"]})
     return out
 
 
@@ -556,6 +561,8 @@ def base_signals(x: P.Candles, store_bars: int, a: Optional[Arr] = None, date_fm
                 row["fail_since"] = a.n - 1 - ev["fail_bar"]
             if ev.get("lowvol"):
                 row["lowvol"] = True
+            if ev.get("weakclose"):
+                row["weakclose"] = True
             if brk is not None:
                 row["base_no"] = 1 + sum(1 for j in brk if u < j < b["start"])
                 row["climactic"] = bool(_prior_rise(a, b["start"], C.CLIMAX_WINDOW) >= C.CLIMAX_RISE_PCT / 100.0)

@@ -192,6 +192,8 @@ def apply_result(stock: Dict[str, Any], tf: str, res: Dict[str, Any], stamp: str
         if f"signal_error{s}" not in summary:
             stock.pop(f"signal_error{s}", None)
     stock.pop(f"scan_error{s}", None)
+    if res["status"] == "NO_DATA":  # keep the reason: the dashboard tells "Yahoo has no candles" from "too few candles"
+        stock[f"scan_error{s}"] = "NO_DATA: " + (res.get("error") or "no data")
     stock[cfg["stamp"]] = stamp
     stock[f"last_updated{s}"] = stamp
     return stock[f"scanner_status{s}"]
@@ -202,7 +204,9 @@ def apply_result(stock: Dict[str, Any], tf: str, res: Dict[str, Any], stamp: str
 # ---------------------------------------------------------------------------
 def run_scan(targets: List[Dict[str, Any]], tfs_for: Callable[[Dict[str, Any]], List[str]],
              workers: int, history_fn=None, progress_every: int = 100,
-             with_signals: bool = True, now_utc=None) -> Dict[str, Any]:
+             with_signals: bool = True, now_utc=None,
+             retry_out: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
+    """Scan `targets`. When `retry_out` is given it is filled with {symbol: [timeframes]} that ended in ERROR / NO_DATA."""
     results: Dict[str, Dict[str, Dict[str, Any]]] = {}
     saved_upto = 0
     written: Set[Tuple[str, str]] = set()  # (symbol, tf) detail blocks already stored
@@ -248,6 +252,8 @@ def run_scan(targets: List[Dict[str, Any]], tfs_for: Callable[[Dict[str, Any]], 
                 continue
             for tf, res in results[sym].items():
                 counts[f"{tf}:{res['status']}"] = counts.get(f"{tf}:{res['status']}", 0) + 1
+                if retry_out is not None and res["status"] in ("ERROR", "NO_DATA"):
+                    retry_out.setdefault(sym, []).append(tf)
             done += 1
             if done % progress_every == 0 or done == len(futs):
                 log.info(f"  {done}/{len(futs)} symbols ({time.time() - t0:.0f}s)")
@@ -322,8 +328,20 @@ def main(argv=None) -> int:
                 log.info("Nothing to scan (no new closed candle since the last scan). Use --force to rescan.")
                 return 0
             t0 = time.time()
+            retry: Dict[str, List[str]] = {}
             counts = run_scan(targets, lambda s: plan[norm_symbol(s.get("symbol"))], args.workers,
-                              with_signals=not args.no_signals)
+                              with_signals=not args.no_signals, retry_out=retry)
+            for n in range(1, config.RETRY_PASSES + 1):
+                if not retry:
+                    break
+                log.info(f"Retry pass {n}/{config.RETRY_PASSES}: {len(retry)} symbols had no data or a download error; "
+                         f"waiting {config.RETRY_PASS_PAUSE}s, then trying again with {config.RETRY_PASS_WORKERS} workers")
+                time.sleep(config.RETRY_PASS_PAUSE)
+                again: Dict[str, List[str]] = {}
+                run_scan([s for s in targets if norm_symbol(s.get("symbol")) in retry], lambda s, r=retry: r[norm_symbol(s.get("symbol"))],
+                         config.RETRY_PASS_WORKERS, with_signals=not args.no_signals, retry_out=again)
+                log.info(f"  recovered {len(retry) - len(again)} of {len(retry)}; {len(again)} still without data")
+                retry = again
             log.info(f"Done in {time.time() - t0:.0f}s | " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
             print_summary(load_stocks())
             return 0

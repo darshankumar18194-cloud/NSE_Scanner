@@ -107,6 +107,22 @@ BASE_PRIOR_WINDOW = 120           # chosen: candles before a base that are searc
 BASE_PRIOR_RISE_PCT = 30          # chosen: the stock must have risen at least 30% into the base (VCP, Cup, Double Bottom, Ascending, Ledge)
 BASE_BREAKOUT_VOL = 1.4           # guide: breakout volume 40-50% above the 50-day average
 BASE_BREAKOUT_VOL_EASY = 1.2      # guide: Flat Base / Power Play are already shallow, so "modest" volume is enough (1.2x chosen)
+# Per-base breakout rules. A base is only called a breakout when the closing candle passes ITS OWN rules; anything not listed here uses the
+# defaults above (VCP, Cup, Double Bottom ... 1.4x; Flat Base, Power Play ... 1.2x). Keys per base:
+#   "vol"       minimum volume of the breakout candle, as a multiple of the 50-candle average
+#   "close_pos" the breakout candle must close in the top (bull) / bottom (bear) part of its own range: 0.7 = within the top 30%
+# Beyond the trigger but short of these rules the base stays "forming", flagged "low volume" or "weak close", and is not a breakout.
+BASE_BREAKOUT_RULES = {
+    # Guide (Vol. I, Volume Dry-Up): the breakout-day spike is "often 2x+ average", the volume backbone of VCP, Cup-with-Handle and
+    # Darvas. A Darvas box also ends with a clean close above the top (a close that pokes above and falls back is not a new box).
+    "Darvas Box": {"vol": 1.5, "close_pos": 0.7},
+    # Guide (Vol. I, Rectangle): "a DECISIVE close outside either boundary" - a candle that only pokes out and closes back near the
+    # box is not a resolution. 0.6 = the close sits in the better 40% of the candle's range (volume stays at the general 1.4x).
+    "Rectangle": {"close_pos": 0.6},
+    # Guide (Vol. I, Rounding Bottom): "a PICKUP in volume after a long quiet period" - a saucer is quiet for months, so 1.2x the
+    # 50-candle average is already a pickup (the general 1.4x asks for a surge that a slow base does not need).
+    "Rounding Bottom": {"vol": 1.2},
+}
 BASE_NEAR_PIVOT_PCT = 5           # chosen: a base is "forming" while the close is within 5% below its pivot
 BASE_MIN_DEPTH_PCT = 1.0          # chosen: a base must be at least 1% deep: a price that never moves (halted / illiquid stock) is not a base
 BASE_FAIL_BARS = 5                # chosen: a breakout that closes back below its pivot within 5 candles has failed
@@ -238,6 +254,11 @@ SCAN_WORKERS = 8
 ENRICH_WORKERS = 6
 REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
+# After the main scan, symbols that came back with no data or a download error are tried again, slowly: from GitHub's shared
+# IPs Yahoo often answers "possibly delisted" / "Too many requests" for names that exist. Set RETRY_PASSES = 0 to switch it off.
+RETRY_PASSES = 2
+RETRY_PASS_PAUSE = int(os.environ.get("NSE_RETRY_PASS_PAUSE", 45))  # seconds to wait before each retry pass (lets Yahoo's limit cool down)
+RETRY_PASS_WORKERS = 2
 RETRY_BASE = float(os.environ.get("NSE_RETRY_BASE", 2.0))  # seconds; exponential backoff base
 PRICE_BATCH_SIZE = 100
 CHECKPOINT_EVERY = 400  # save partial scan results every N symbols

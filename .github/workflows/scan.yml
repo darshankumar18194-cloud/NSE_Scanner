@@ -98,9 +98,9 @@ jobs:
           echo "Could not push after 3 attempts"
           exit 1
 
-      - name: Keep only the newest 100 commits (rolling history)
+      - name: Keep only the newest 10 commits (rolling history)
         env:
-          KEEP: "100"
+          KEEP: "10"
         run: |
           git fetch origin "${GITHUB_REF_NAME}"
           git checkout -q -B "${GITHUB_REF_NAME}" "origin/${GITHUB_REF_NAME}"

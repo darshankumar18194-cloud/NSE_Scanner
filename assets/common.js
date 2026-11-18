@@ -35,7 +35,7 @@ function adaptStock(r){
     bullish_rank_score: nnum(g('bullish_rank_score')) || 0, signal_rank_score: nnum(g('signal_rank_score')) || 0,
     structure_bars_since: -1, status: status};
   return {
-    symbol: r.symbol, yahoo_symbol: r.symbol + '.NS', name: r.company_name || r.symbol,
+    symbol: r.symbol, yahoo_symbol: (String(r.symbol).charAt(0) === '^' || r.instrument_group === 'INDEX') ? r.symbol : r.symbol + '.NS',   // indices have no .NS suffix on Yahoo name: r.company_name || r.symbol,
     type: r.instrument_group || r.series || 'Stock', active: r.listed !== false, notes: r.sector || '',
     tradingview_url: r.tradingview_url, tz: 'Asia/Kolkata', scanned_at: r['scanned_at' + x] || r.scanned_at || '',
     bars: nnum(g('bars')), last_bar_time: lastBar, scanner_status: status === 'OK' || status === 'STALE' ? status : (status || 'PENDING_SCAN'),

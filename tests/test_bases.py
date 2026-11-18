@@ -468,3 +468,30 @@ def test_everything_the_scanner_produces_passes_the_publish_validator():
         assert errors == [], errors[:3]
         seen_old |= any(g["group"] == "base" and g["status"] == "forming" and g["since"] >= PROF.store_bars for g in detail["signals"])
     assert seen_old      # the test really did produce the old-forming case that used to be rejected
+
+
+# ----------------------------------------------------------------------------- per-base breakout rules (config.BASE_BREAKOUT_RULES)
+def _darvas_after(close_mult, vol, wick=0.0):
+    """A Darvas box, then one candle closing at box top * close_mult on `vol`; wick = extra high above the close (a long upper wick)."""
+    b = S.darvas()
+    pivot = [r for r in sigs(b, "Darvas Box") if r["status"] == "forming"][0]["pivot"]
+    b.bar(pivot * close_mult, vol=vol)
+    df = b.df()
+    if wick:
+        df.loc[df.index[-1], "High"] = df["Close"].iloc[-1] * (1 + wick)
+    return [r for r in B.base_signals(P.Candles(df, 50), PROF.store_bars) if r["name"] == "Darvas Box"]
+
+
+def test_darvas_breakout_needs_1_5x_volume_and_a_clean_close(monkeypatch):
+    assert config.BASE_BREAKOUT_RULES["Darvas Box"]["vol"] >= 1.5            # the guide's 2x+ spike, 1.5x chosen
+    broke = lambda rows: any(r["status"] == "breakout" for r in rows)
+    assert broke(_darvas_after(1.03, vol=1.7))                               # 1.7x volume, closes at its high: a real breakout
+    weak_vol = _darvas_after(1.03, vol=1.36)                                 # about 1.45x the average: passes the general 1.4x, fails Darvas's 1.5x
+    poked = _darvas_after(1.03, vol=2.5, wick=0.06)                          # big volume, but it closed far below its high
+    assert not broke(weak_vol) and not broke(poked)
+    monkeypatch.setattr(config, "BASE_BREAKOUT_RULES", {})                   # without the Darvas rules the same candles WOULD count
+    assert broke(_darvas_after(1.03, vol=1.36)) and broke(_darvas_after(1.03, vol=2.5, wick=0.06))
+
+
+def test_other_bases_keep_their_own_default_volume_rule():
+    assert "VCP" not in config.BASE_BREAKOUT_RULES and "Flat Base" not in config.BASE_BREAKOUT_RULES

@@ -259,6 +259,11 @@ MAX_RETRIES = 3
 RETRY_PASSES = 2
 RETRY_PASS_PAUSE = int(os.environ.get("NSE_RETRY_PASS_PAUSE", 45))  # seconds to wait before each retry pass (lets Yahoo's limit cool down)
 RETRY_PASS_WORKERS = 2
+# "No data" (Yahoo says possibly delisted) is permanent for dead tickers, so by default only real download errors are retried.
+# Set NSE_RETRY_NO_DATA=1 to retry NO_DATA names as well (they were retried before; on a throttled IP that cost ~40 min per run).
+RETRY_NO_DATA = os.environ.get("NSE_RETRY_NO_DATA", "0") == "1"
+# Stop retrying when a retry pass recovers less than this share of the symbols it retried: Yahoo is still refusing this IP.
+RETRY_MIN_RECOVERY = 0.05
 RETRY_BASE = float(os.environ.get("NSE_RETRY_BASE", 2.0))  # seconds; exponential backoff base
 PRICE_BATCH_SIZE = 100
 CHECKPOINT_EVERY = 400  # save partial scan results every N symbols
@@ -269,6 +274,7 @@ LARGE_CAP_CR = 20_000  # only used when CAP_METHOD == "threshold"
 MID_CAP_CR = 5_000
 RANK_LARGE = 100
 RANK_MID = 250
+ENRICH_ABORT_AFTER = 60  # enrich stops when this many lookups finished and not one returned data (Yahoo is refusing the IP: HTTP 401 / 429)
 ENRICH_REFRESH_DAYS = 7
 ENRICH_RETRY_DAYS = 2
 

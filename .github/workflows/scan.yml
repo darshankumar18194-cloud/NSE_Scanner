@@ -84,18 +84,33 @@ jobs:
         run: |
           git config user.name  "nse-scanner-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A shared-data
+          # Only the files this pipeline generates. Anything else in shared-data (holidays.txt, index_lists.json)
+          # is left exactly as it is on the remote.
+          GEN=""
+          for p in shared-data/stocks.json shared-data/stocks_1h.json shared-data/board_1d.json shared-data/board_1h.json shared-data/detail; do
+            [ -e "$p" ] && GEN="$GEN $p"
+          done
+          git add -A $GEN
           if git diff --cached --quiet; then
             echo "No data changes to commit."
             exit 0
           fi
-          git commit -m "Automated scan: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          for attempt in 1 2 3; do
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+          # The scan takes up to an hour; the branch may have moved meanwhile. The data files are regenerated in full on every
+          # run, so merging them is pointless: put this run's output on top of the newest remote commit instead of rebasing.
+          rm -rf /tmp/gen && mkdir /tmp/gen
+          for p in $GEN; do cp -r --parents "$p" /tmp/gen/; done
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git reset -q --hard "origin/${GITHUB_REF_NAME}"
+            cp -r /tmp/gen/. .
+            git add -A $GEN
+            if git diff --cached --quiet; then echo "Already up to date."; exit 0; fi
+            git commit -q -m "Automated scan: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
             echo "push attempt $attempt failed, retrying..."
-            sleep 5
+            sleep $((attempt * 5))
           done
-          echo "Could not push after 3 attempts"
+          echo "Could not push after 5 attempts"
           exit 1
 
       - name: Keep only the newest 10 commits (rolling history)

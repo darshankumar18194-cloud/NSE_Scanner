@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -169,15 +170,25 @@ def main(argv=None, info_fn=_yf_info) -> int:
             todo = [] if args.indices_only else [s for s in stocks if needs_enrichment(s, args.force)]
             if args.limit:
                 todo = todo[:args.limit]
+            else:
+                random.shuffle(todo)   # so the abort check below sees a representative sample, not one block of SME names
             log.info(f"{len(stocks)} records | to enrich: {len(todo)}")
             results: Dict[str, Dict[str, Any]] = {}
             t0 = time.time()
             with ThreadPoolExecutor(max_workers=args.workers) as pool:
                 futs = {pool.submit(enrich_one, s, info_fn): norm_symbol(s.get("symbol")) for s in todo}
+                got = 0
                 for n, fut in enumerate(as_completed(futs), start=1):
                     results[futs[fut]] = fut.result()
+                    got += results[futs[fut]].get("enrich_status") == "OK"
                     if n % 100 == 0 or n == len(futs):
                         log.info(f"  {n}/{len(futs)}")
+                    if config.ENRICH_ABORT_AFTER and n >= config.ENRICH_ABORT_AFTER and got == 0:
+                        log.warning(f"  {n} lookups and none returned data - Yahoo is refusing this IP (HTTP 401 / 429); "
+                                    f"stopping. The rest are not marked, so the next run tries them again.")
+                        for f in futs:
+                            f.cancel()
+                        break
             imap = load_index_map()
             stamp = fmt_ts()
 

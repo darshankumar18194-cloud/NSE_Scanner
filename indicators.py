@@ -103,7 +103,9 @@ def adx(h, l, c, n: int = 14):
         den = pdi[i] + mdi[i]
         dx[i] = 100 * abs(pdi[i] - mdi[i]) / den if den > 0 else 0.0
     first = 2 * n - 1
-    out_adx[first] = np.nanmean(dx[n:first + 1])
+    seed = dx[n:first + 1]
+    if np.isfinite(seed).any():   # all-NaN (flat, zero-range prices) -> leave NaN without the "Mean of empty slice" warning
+        out_adx[first] = np.nanmean(seed)
     for i in range(first + 1, N):
         if not np.isnan(dx[i]):
             out_adx[i] = (out_adx[i - 1] * (n - 1) + dx[i]) / n

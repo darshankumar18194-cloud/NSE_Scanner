@@ -13,3 +13,8 @@ Fixes for the failed scheduled scan (run of 2026-11-26: scan finished, the push 
 
 Test suite: 254 tests before, 263 after, all passing.
 Not changed: the detection engine, dashboards, schedule, data files. Generated data (`stock/`, `signals/`, `shared-data/detail`, `stocks*.json`, `board_*.json`) is not part of this package.
+
+## This package: empty-data version
+`shared-data/` holds only `holidays.txt` and empty seeds (`stocks.json` / `stocks_1h.json` = `[]`, `board_*.json` = zero stocks).
+`signals/` and `main-dashboard/` are the web pages (code), kept as they are. To fill the project: run the NSE scan workflow once with
+steps `universe scan prices enrich board validate` and *force* ticked (see README, "first run").
